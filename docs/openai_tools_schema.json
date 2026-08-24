@@ -1,0 +1,331 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "data_statistics",
+      "description": "对表格数据进行统计分析。支持描述性统计（均值、标准差、最大最小值等）、相关性矩阵、频率分布。输入为 JSON 格式的表格数据。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dataframe": {
+            "type": "object",
+            "description": "表格数据，包含列名和数据",
+            "properties": {
+              "columns": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "列名列表，如 [\"name\", \"score\", \"age\"]"
+              },
+              "data": {
+                "type": "array",
+                "items": {
+                  "type": "array"
+                },
+                "description": "二维数据数组，每行一个数据记录，如 [[\"Alice\", 88, 25], [\"Bob\", 92, 30]]"
+              }
+            },
+            "required": ["columns", "data"]
+          },
+          "stat_type": {
+            "type": "string",
+            "enum": ["descriptive", "correlation", "frequency"],
+            "description": "统计类型：descriptive=描述性统计, correlation=相关性矩阵, frequency=频率分布",
+            "default": "descriptive"
+          },
+          "columns": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "需要分析的目标列名，为空时自动选择数值列",
+            "default": null
+          }
+        },
+        "required": ["dataframe"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "data_query",
+      "description": "使用 SQL 查询表格数据。底层使用 DuckDB 引擎，支持标准 SELECT 语法，表名固定为 df。可用于复杂的数据筛选、计算、排序等操作。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dataframe": {
+            "type": "object",
+            "description": "表格数据",
+            "properties": {
+              "columns": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "列名列表"
+              },
+              "data": {
+                "type": "array",
+                "items": { "type": "array" },
+                "description": "二维数据数组"
+              }
+            },
+            "required": ["columns", "data"]
+          },
+          "sql": {
+            "type": "string",
+            "description": "SELECT SQL 语句，表名为 df。例如：SELECT name, score FROM df WHERE score > 80 ORDER BY score DESC"
+          }
+        },
+        "required": ["dataframe", "sql"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "data_filter",
+      "description": "按条件筛选表格数据。支持多种运算符（等于、不等于、大于、小于、包含等），可组合多个条件（AND/OR）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dataframe": {
+            "type": "object",
+            "description": "表格数据",
+            "properties": {
+              "columns": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "列名列表"
+              },
+              "data": {
+                "type": "array",
+                "items": { "type": "array" },
+                "description": "二维数据数组"
+              }
+            },
+            "required": ["columns", "data"]
+          },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "column": {
+                  "type": "string",
+                  "description": "筛选的目标列名"
+                },
+                "operator": {
+                  "type": "string",
+                  "enum": ["eq", "ne", "gt", "ge", "lt", "le", "in", "not_in", "contains", "startswith", "endswith"],
+                  "description": "运算符：eq=等于, ne=不等于, gt=大于, ge=大于等于, lt=小于, le=小于等于, in=在列表中, contains=包含"
+                },
+                "value": {
+                  "description": "比较值，类型根据运算符决定"
+                }
+              },
+              "required": ["column", "operator", "value"]
+            },
+            "description": "筛选条件列表"
+          },
+          "logic": {
+            "type": "string",
+            "enum": ["and", "or"],
+            "description": "条件组合方式",
+            "default": "and"
+          }
+        },
+        "required": ["dataframe", "conditions"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "data_aggregate",
+      "description": "对表格数据进行分组聚合。支持按指定列分组，对目标列执行求和、均值、计数、最大、最小、中位数、标准差等聚合运算。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dataframe": {
+            "type": "object",
+            "description": "表格数据",
+            "properties": {
+              "columns": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "列名列表"
+              },
+              "data": {
+                "type": "array",
+                "items": { "type": "array" },
+                "description": "二维数据数组"
+              }
+            },
+            "required": ["columns", "data"]
+          },
+          "group_by": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "分组依据的列名，如 [\"city\", \"category\"]"
+          },
+          "agg_columns": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "需要聚合的目标列名，如 [\"sales\", \"profit\"]"
+          },
+          "agg_funcs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["sum", "mean", "count", "min", "max", "median", "std"]
+            },
+            "description": "聚合函数列表：sum=求和, mean=均值, count=计数, min=最小值, max=最大值, median=中位数, std=标准差"
+          }
+        },
+        "required": ["dataframe", "group_by", "agg_columns", "agg_funcs"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "data_sort",
+      "description": "对表格数据按指定列排序，支持升序和降序。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dataframe": {
+            "type": "object",
+            "description": "表格数据",
+            "properties": {
+              "columns": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "列名列表"
+              },
+              "data": {
+                "type": "array",
+                "items": { "type": "array" },
+                "description": "二维数据数组"
+              }
+            },
+            "required": ["columns", "data"]
+          },
+          "sort_by": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "排序依据的列名，如 [\"score\"]"
+          },
+          "ascending": {
+            "type": "boolean",
+            "description": "是否升序排列，true=升序，false=降序",
+            "default": true
+          }
+        },
+        "required": ["dataframe", "sort_by"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "visual_chart",
+      "description": "根据表格数据生成图表。支持柱状图、折线图、饼图、散点图、热力图、雷达图、面积图、直方图、箱线图。输出 PNG(base64)、SVG 或 HTML(plotly 交互) 格式。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dataframe": {
+            "type": "object",
+            "description": "表格数据",
+            "properties": {
+              "columns": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "列名列表"
+              },
+              "data": {
+                "type": "array",
+                "items": { "type": "array" },
+                "description": "二维数据数组"
+              }
+            },
+            "required": ["columns", "data"]
+          },
+          "chart_type": {
+            "type": "string",
+            "enum": ["bar", "line", "pie", "scatter", "heatmap", "radar", "area", "histogram", "box"],
+            "description": "图表类型：bar=柱状图, line=折线图, pie=饼图, scatter=散点图, heatmap=热力图, radar=雷达图, area=面积图, histogram=直方图, box=箱线图"
+          },
+          "x": {
+            "type": "string",
+            "description": "X 轴对应的列名"
+          },
+          "y": {
+            "description": "Y 轴对应的列名，可以是字符串或字符串数组（多系列）"
+          },
+          "title": {
+            "type": "string",
+            "description": "图表标题"
+          },
+          "output_format": {
+            "type": "string",
+            "enum": ["png", "svg", "html"],
+            "description": "输出格式：png=图片base64, svg=矢量图base64, html=plotly交互图表",
+            "default": "png"
+          }
+        },
+        "required": ["dataframe", "chart_type"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "data_clean",
+      "description": "对表格数据进行清洗操作。支持空值填充、删除空值、类型转换、文本清理、异常值过滤等。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dataframe": {
+            "type": "object",
+            "description": "表格数据",
+            "properties": {
+              "columns": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "列名列表"
+              },
+              "data": {
+                "type": "array",
+                "items": { "type": "array" },
+                "description": "二维数据数组"
+              }
+            },
+            "required": ["columns", "data"]
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "operation": {
+                  "type": "string",
+                  "enum": ["fill_na", "drop_na", "cast_type", "strip_text", "replace_text", "drop_outliers"],
+                  "description": "操作类型：fill_na=填充空值, drop_na=删除空值, cast_type=类型转换, strip_text=文本去空格, replace_text=文本替换, drop_outliers=删除异常值"
+                },
+                "column": {
+                  "type": "string",
+                  "description": "目标列名，为 null 时作用于所有列"
+                },
+                "params": {
+                  "type": "object",
+                  "description": "操作参数，如 fill_na 的 {\"value\": 0}，cast_type 的 {\"dtype\": \"float64\"}"
+                }
+              },
+              "required": ["operation"]
+            },
+            "description": "清洗操作列表，按顺序依次执行"
+          }
+        },
+        "required": ["dataframe", "operations"]
+      }
+    }
+  }
+]

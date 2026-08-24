@@ -1,0 +1,521 @@
+openapi: 3.0.3
+info:
+  title: 产品增量分析 — 数据查询 API
+  description: '基于已入库的三张产品增量分析基础表，提供数据集管理和 SQL 查询能力。
+
+
+    | 表名 | dataset_id | 说明 |
+
+    |------|-----------|------|
+
+    | daily_balance | `c06538a6` | 每日规模余额表 — 各产品系列在不同日期的当日规模（余额）
+
+    | daily_increment_detail | `40cfa873` | 每日规模增量明细表 — 子产品维度的每日增长/流失/净增长明细
+
+    | monthly_increment_target | `0901b188` | 每月增量目标表 — 按期限分类和渠道的月度增量目标及预测逻辑'
+  version: 1.2.0
+servers:
+- url: http://localhost:8080
+  description: 本地开发环境
+tags:
+- name: 产品增量分析-数据集
+  description: 数据集列表与详情
+- name: 产品增量分析-daily_balance
+  description: 每日规模余额表查询
+- name: 产品增量分析-daily_increment_detail
+  description: 每日规模增量明细表查询
+- name: 产品增量分析-monthly_increment_target
+  description: 每月增量目标表查询
+- name: 产品增量分析-报表生成
+  description: 分期限目标检视 Excel 报表生成
+paths:
+  /api/v1/data/datasets:
+    get:
+      tags:
+      - 产品增量分析-数据集
+      summary: 列出所有已入库数据集
+      description: '返回 SQLite 中所有已入库数据集的元信息列表。
+
+
+        当前已入库的三张产品增量分析表:
+
+        - **daily_balance** (id: `c06538a6`) — 每日规模余额表 — 各产品系列在不同日期的当日规模（余额）
+
+        - **daily_increment_detail** (id: `40cfa873`) — 每日规模增量明细表 — 子产品维度的每日增长/流失/净增长明细
+
+        - **monthly_increment_target** (id: `0901b188`) — 每月增量目标表 — 按期限分类和渠道的月度增量目标及预测逻辑'
+      operationId: listDatasets
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/DatasetMeta'
+  /api/v1/data/datasets/{dataset_id}:
+    get:
+      tags:
+      - 产品增量分析-数据集
+      summary: 获取数据集详情（含数据预览）
+      description: '获取单个数据集的元信息。preview=N 时额外返回前 N 行数据预览。
+
+
+        可用 dataset_id:
+
+        - `c06538a6` → daily_balance
+
+        - `40cfa873` → daily_increment_detail
+
+        - `0901b188` → monthly_increment_target'
+      operationId: getDataset
+      parameters:
+      - name: dataset_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: 数据集 ID
+        example: c06538a6
+      - name: preview
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+        description: 返回前 N 行数据预览，0 表示不返回
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/DatasetMeta'
+        '404':
+          description: 数据集不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/data/datasets/c06538a6/query:
+    post:
+      tags:
+      - 产品增量分析-daily_balance
+      summary: SQL 查询 — daily_balance
+      description: "每日规模余额表 — 各产品系列在不同日期的当日规模（余额）\n\n**dataset_id**: `c06538a6`\n\n**表列定义:**\n  - `产品类型` (string)\n  - `期限分类`\
+        \ (string)
+  - `具体期限` (string)
+  - `产品系列` (string)
+  - `数据日期` (string)
+  - `当日规模` (number)
+
+**示例 SQL:**
+```sql
+\
+        SELECT 产品系列, 数据日期, 当日规模 FROM daily_balance WHERE 数据日期 = '2026-06-22' ORDER BY 当日规模 DESC\n```\n\n> 安全限制: 仅允许 SELECT\
+        \ / WITH 开头的语句，禁止 DDL/DML。"
+      operationId: query_daily_balance
+      parameters:
+      - name: dataset_id
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - c06538a6
+        description: 固定为 daily_balance 的数据集 ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            examples:
+              default:
+                summary: 查询 daily_balance
+                value:
+                  sql: SELECT 产品系列, 数据日期, 当日规模 FROM daily_balance WHERE 数据日期 = '2026-06-22' ORDER BY 当日规模 DESC
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/QueryResult'
+        '400':
+          description: SQL 语法错误或安全限制
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/data/datasets/40cfa873/query:
+    post:
+      tags:
+      - 产品增量分析-daily_increment_detail
+      summary: SQL 查询 — daily_increment_detail
+      description: "每日规模增量明细表 — 子产品维度的每日增长/流失/净增长明细\n\n**dataset_id**: `40cfa873`\n\n**表列定义:**\n  - `子产品代码` (string)\n  -\
+        \ `母产品代码` (string)
+  - `资金交收日` (integer)
+  - `产品名称` (string)
+  - `产品形态` (string)
+  - `期限分类` (string)
+  - `产品系列`\
+        \ (string)
+  - `销售渠道` (string)
+  - `增长` (number)
+  - `流失` (number)
+  - `净增长` (number)
+  - `映射` (string)
+
+**示例\
+        \ SQL:**
+```sql
+SELECT 产品系列, SUM(净增长) AS 净增长合计 FROM daily_increment_detail GROUP BY 产品系列 ORDER BY 净增长合计 DESC
+```
+\
+        \n> 安全限制: 仅允许 SELECT / WITH 开头的语句，禁止 DDL/DML。"
+      operationId: query_daily_increment_detail
+      parameters:
+      - name: dataset_id
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - 40cfa873
+        description: 固定为 daily_increment_detail 的数据集 ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            examples:
+              default:
+                summary: 查询 daily_increment_detail
+                value:
+                  sql: SELECT 产品系列, SUM(净增长) AS 净增长合计 FROM daily_increment_detail GROUP BY 产品系列 ORDER BY 净增长合计 DESC
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/QueryResult'
+        '400':
+          description: SQL 语法错误或安全限制
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/data/datasets/0901b188/query:
+    post:
+      tags:
+      - 产品增量分析-monthly_increment_target
+      summary: SQL 查询 — monthly_increment_target
+      description: "每月增量目标表 — 按期限分类和渠道的月度增量目标及预测逻辑\n\n**dataset_id**: `0901b188`\n\n**表列定义:**\n  - `月份` (string)\n  - `期限分类`\
+        \ (string)
+  - `目标标签` (string)
+  - `目标标签说明` (string)
+  - `增量目标_新增规模` (number)
+  - `增量目标_流失规模` (number)
+  - `增量目标_净增量`\
+        \ (number)
+  - `增量预测逻辑` (string)
+
+**示例 SQL:**
+```sql
+SELECT 期限分类, 目标标签, SUM(增量目标_净增量) AS 净增量合计 FROM monthly_increment_target\
+        \ GROUP BY 期限分类, 目标标签\n```\n\n> 安全限制: 仅允许 SELECT / WITH 开头的语句，禁止 DDL/DML。"
+      operationId: query_monthly_increment_target
+      parameters:
+      - name: dataset_id
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - 0901b188
+        description: 固定为 monthly_increment_target 的数据集 ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            examples:
+              default:
+                summary: 查询 monthly_increment_target
+                value:
+                  sql: SELECT 期限分类, 目标标签, SUM(增量目标_净增量) AS 净增量合计 FROM monthly_increment_target GROUP BY 期限分类, 目标标签
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/QueryResult'
+        '400':
+          description: SQL 语法错误或安全限制
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/report/term-target-review:
+    post:
+      tags:
+      - 产品增量分析-报表生成
+      summary: 生成分期限目标检视 Excel 报表
+      description: |
+        接收当前日期和结构化 JSON 数组，将数据填充到 Excel 模板并返回文件下载链接。
+
+        **模板布局（6列 A-F，9行）：**
+
+        | 行号 | 内容 | 动态参数 |
+        |------|------|----------|
+        | 第1行 | 标题（二、分期限目标检视） | 无 |
+        | 第2-3行 | 列头（产品类型/期限分类/规模/销量分析） | month, date, week period |
+        | 第4-7行 | 固定收益类（4个子类） | rows[0]-rows[3] |
+        | 第8行 | 含权益类 | rows[4] |
+        | 第9行 | 总计（自动求和） | 自动计算 |
+
+        **动态日期计算：**
+        - C2: `{month}月规模`
+        - C3: `{M}/{D}规模`
+        - E3: `主要产品销量情况（{start}-{end}）（{n}个工作日）`（往前推一周）
+      operationId: generateTermTargetReview
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TermTargetReviewRequest'
+            examples:
+              default:
+                summary: 6月分期限目标检视
+                value:
+                  current_date: "2026-06-22"
+                  rows:
+                  - product_type: "固定收益类"
+                    term_category: "超短期固收【T+1日开】"
+                    daily_scale: 1200.50
+                    vs_last_month: -50.30
+                    sales_analysis: "净增长 +120.50 万元，主要产品：A、B"
+                  - product_type: "固定收益类"
+                    term_category: "超短期固收【7D-2M】"
+                    daily_scale: 800.00
+                    vs_last_month: 30.20
+                    sales_analysis: "净增长 -80.00 万元，主要产品：C"
+                  - product_type: "固定收益类"
+                    term_category: "中短期固收"
+                    daily_scale: 500.00
+                    vs_last_month: 10.00
+                    sales_analysis: "无数据"
+                  - product_type: "固定收益类"
+                    term_category: "长期限固收"
+                    daily_scale: 300.00
+                    vs_last_month: -5.00
+                    sales_analysis: "净增长 +50.00 万元，主要产品：D"
+                  - product_type: "含权益类"
+                    term_category: "含权益类"
+                    daily_scale: 200.00
+                    vs_last_month: 15.00
+                    sales_analysis: "净增长 +30.00 万元，主要产品：E"
+      responses:
+        '200':
+          description: 报表生成成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/ReportFileResult'
+        '422':
+          description: 参数校验失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          type: object
+        request_id:
+          type: string
+          nullable: true
+    DatasetMeta:
+      type: object
+      properties:
+        id:
+          type: string
+        table_name:
+          type: string
+        filename:
+          type: string
+        description:
+          type: string
+        row_count:
+          type: integer
+        column_count:
+          type: integer
+        columns:
+          type: string
+          description: 逗号分隔的列名
+        dtypes:
+          type: string
+          description: JSON 格式的列类型
+        file_type:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    QueryRequest:
+      type: object
+      required:
+      - sql
+      properties:
+        sql:
+          type: string
+          description: SELECT 语句，表名使用 dataset_id 对应的 table_name
+    QueryResult:
+      type: object
+      properties:
+        columns:
+          type: array
+          items:
+            type: string
+          description: 结果列名
+        data:
+          type: array
+          items:
+            type: array
+            items: {}
+          description: 二维结果数据
+        row_count:
+          type: integer
+          description: 结果行数
+    TermTargetReviewRequest:
+      type: object
+      required:
+      - current_date
+      - rows
+      properties:
+        current_date:
+          type: string
+          format: date
+          description: 当前日期，ISO 格式 YYYY-MM-DD
+          example: "2026-06-22"
+        rows:
+          type: array
+          minItems: 1
+          maxItems: 5
+          description: 数据行数组（1-5行），按固定顺序排列
+          items:
+            $ref: '#/components/schemas/TermTargetRow'
+    TermTargetRow:
+      type: object
+      required:
+      - product_type
+      - daily_scale
+      - vs_last_month
+      - sales_analysis
+      properties:
+        product_type:
+          type: string
+          maxLength: 50
+          description: 产品类型
+          example: "固定收益类"
+        term_category:
+          type: string
+          nullable: true
+          maxLength: 100
+          description: 期限分类，总计行可为空
+          example: "超短期固收【T+1日开】"
+        daily_scale:
+          type: number
+          format: double
+          description: 当日规模，保留两位小数
+          example: 1200.50
+        vs_last_month:
+          type: number
+          format: double
+          description: 较上月末变化，保留两位小数
+          example: -50.30
+        sales_analysis:
+          type: string
+          maxLength: 5000
+          description: "销量分析文本，格式：净增长 ±XXX.XX 万元，主要产品：A、B"
+          example: "净增长 +120.50 万元，主要产品：A、B"
+    ReportFileResult:
+      type: object
+      properties:
+        filename:
+          type: string
+          description: 生成的文件名
+          example: "report_term_target_review_a1b2c3d4.xlsx"
+        format:
+          type: string
+          description: 文件格式
+          example: xlsx
+        download_url:
+          type: string
+          description: 文件下载路径
+          example: "/api/v1/file/download/report_term_target_review_a1b2c3d4.xlsx"
+        row_count:
+          type: integer
+          description: 数据行数（不含表头和合计行）
+          example: 5
+        column_count:
+          type: integer
+          description: 列数（固定6）
+          example: 6
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          nullable: true
+        request_id:
+          type: string
+          nullable: true

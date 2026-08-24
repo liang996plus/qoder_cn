@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: ""
+title: hiagent 辅助 Web 服务需求文档
+scope:
+    - docs/
+source_files: []
+depends_on: []
+related_to: []

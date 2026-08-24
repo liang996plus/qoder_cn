@@ -1,0 +1,67 @@
+# 示例分析场景 — 演示 Pipeline 引擎的完整流程
+# 流程：上传 CSV 文件 -> 数据清洗 -> 描述性统计 -> 输出表格 + 文件 + 摘要
+
+scenario_id: "sample_analysis"
+name: "示例分析场景"
+description: "上传 CSV 数据，自动清洗和统计分析，输出表格、文件和摘要"
+version: "1.0"
+
+# 数据源定义
+data_sources:
+  - name: "raw_data"
+    connector: "file_upload"
+    config:
+      param_mapping:
+        file_content: "$input.file_content"
+        filename: "$input.filename"
+
+# 流水线步骤
+pipeline:
+  - name: "step_clean"
+    action: "clean"
+    input: "raw_data"
+    params:
+      operations:
+        - operation: "fill_na"
+          params:
+            value: 0
+        - operation: "strip_text"
+    output: "cleaned_data"
+    on_error: "abort"
+
+  - name: "step_sort"
+    action: "sort"
+    input: "cleaned_data"
+    params:
+      sort_by: ["$input.sort_column"]
+      ascending: false
+    output: "sorted_data"
+    on_error: "skip"
+
+  - name: "step_stats"
+    action: "statistics"
+    input: "cleaned_data"
+    params:
+      stat_type: "descriptive"
+    output: "stats_result"
+    on_error: "skip"
+
+# 输出定义
+outputs:
+  - name: "stats_table"
+    type: "table"
+    source: "stats_result"
+    config:
+      title: "统计摘要"
+
+  - name: "data_export"
+    type: "file"
+    source: "cleaned_data"
+    config:
+      format: "csv"
+
+  - name: "data_summary"
+    type: "summary"
+    source: "cleaned_data"
+    config:
+      max_rows: 10

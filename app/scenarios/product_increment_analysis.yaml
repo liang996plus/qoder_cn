@@ -1,0 +1,125 @@
+# 产品增量分析场景 — 从 SQLite 加载已入库的 3 张基础表
+# 提供余额概览、增量明细汇总、目标达成分析等 Pipeline 消费示例
+#
+# 使用方式:
+#   POST /api/v1/pipeline/run
+#   { "scenario_id": "product_increment_analysis", "params": { ... } }
+
+scenario_id: "product_increment_analysis"
+name: "产品增量分析"
+description: |
+  基于已入库的每日规模余额表、每日规模增量明细表和每月增量目标表，
+  支持按产品系列/期限分类/日期维度进行余额查询、增量汇总和目标对比分析。
+version: "1.0"
+
+# ────────────────────────────────────────────────────────────────
+# 数据源定义 — 通过 DatabaseConnector (driver: sqlite) 查询已入库表
+# ────────────────────────────────────────────────────────────────
+data_sources:
+
+  # 数据源 1: 每日规模余额
+  - name: "daily_balance"
+    connector: "database"
+    config:
+      driver: "sqlite"
+      path: "./data/hiagent.db"
+      sql: >
+        SELECT * FROM sqlite_db.daily_balance
+        WHERE 1=1
+
+  # 数据源 2: 每日规模增量明细
+  - name: "daily_increment"
+    connector: "database"
+    config:
+      driver: "sqlite"
+      path: "./data/hiagent.db"
+      sql: >
+        SELECT * FROM sqlite_db.daily_increment_detail
+        WHERE 1=1
+
+  # 数据源 3: 每月增量目标
+  - name: "monthly_target"
+    connector: "database"
+    config:
+      driver: "sqlite"
+      path: "./data/hiagent.db"
+      sql: >
+        SELECT * FROM sqlite_db.monthly_increment_target
+        WHERE 1=1
+
+# ────────────────────────────────────────────────────────────────
+# Pipeline 步骤示例
+# ────────────────────────────────────────────────────────────────
+pipeline:
+
+  # 步骤 1: 按产品系列汇总最新日期余额
+  - name: "balance_by_series"
+    action: "query"
+    input: "daily_balance"
+    params:
+      sql: >
+        SELECT 产品类型, 期限分类, 产品系列, 数据日期, 当日规模
+        FROM df
+        ORDER BY 当日规模 DESC
+    output: "balance_sorted"
+    on_error: "skip"
+
+  # 步骤 2: 增量明细 — 按产品系列汇总净增长
+  - name: "increment_by_series"
+    action: "aggregate"
+    input: "daily_increment"
+    params:
+      group_by: ["产品系列", "期限分类"]
+      agg_columns: ["增长(元)", "流失(元)", "净增长(元)"]
+      agg_funcs: ["sum"]
+    output: "increment_summary"
+    on_error: "skip"
+
+  # 步骤 3: 增量明细 — 按映射分类汇总
+  - name: "increment_by_mapping"
+    action: "aggregate"
+    input: "daily_increment"
+    params:
+      group_by: ["映射"]
+      agg_columns: ["增长(元)", "流失(元)", "净增长(元)"]
+      agg_funcs: ["sum"]
+    output: "increment_by_mapping"
+    on_error: "skip"
+
+  # 步骤 4: 余额统计
+  - name: "balance_stats"
+    action: "statistics"
+    input: "daily_balance"
+    params:
+      stat_type: "descriptive"
+    output: "balance_statistics"
+    on_error: "skip"
+
+# ────────────────────────────────────────────────────────────────
+# 输出定义
+# ────────────────────────────────────────────────────────────────
+outputs:
+
+  - name: "余额排名表"
+    type: "table"
+    source: "balance_sorted"
+    config:
+      title: "各产品系列每日余额排名"
+
+  - name: "增量汇总表"
+    type: "table"
+    source: "increment_summary"
+    config:
+      title: "按产品系列的增量汇总"
+
+  - name: "映射分类汇总"
+    type: "table"
+    source: "increment_by_mapping"
+    config:
+      title: "按映射分类的增量汇总"
+
+  - name: "余额统计摘要"
+    type: "summary"
+    source: "daily_balance"
+    config:
+      max_rows: 20

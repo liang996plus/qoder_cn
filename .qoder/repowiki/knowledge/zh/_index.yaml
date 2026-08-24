@@ -1,0 +1,16 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: zh-CN
+branch: Q0DeR-MaG1C-BrAnCh-Fo2-NoN-GiT-Or-No-C0MmIt
+nodes_managed: true
+exported_at: "2026-08-21T02:15:23Z"
+modules:
+    "":
+        dir_name: hiagent 辅助 Web 服务需求文档
+        title: hiagent 辅助 Web 服务需求文档
+        scope:
+            - docs/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
